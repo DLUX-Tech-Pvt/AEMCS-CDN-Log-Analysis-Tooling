@@ -15,7 +15,7 @@ To quickstart the analysis, the following dashboards are provided:
     - Please note that under extremely heavy load, not all requests are added to the logs available for download from Cloud Manager.  In this situation, the Content Request Dashboard may not provide accurate counts.
     - Also note that if a [customer-managed CDN](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn#point-to-point-CDN) is put in front of the default CDN that comes with AEMCS, then this dashboard only shows the portion of content requests which are not cached at the outer CDN and the customer is responsible for self-reporting for license measurement purposes.
 
-However, you can enhance and create additional dashboards to gain further insights and optimize the CDN configurations.
+You can enhance and create additional dashboards to gain further insights and optimize the CDN configurations.
 
 ## Prerequisites
 
@@ -23,6 +23,7 @@ However, you can enhance and create additional dashboards to gain further insigh
 
 - Download the [CDN logs](https://experienceleague.adobe.com/docs/experience-manager-cloud-service/content/implementing/using-cloud-manager/manage-logs.html?lang=en) you would like to analyze.
     - Content requests are limited to the production environment publish tier for AEMCS.  You are free to download and analyze any CDN logs with these dashboards, however focus on production publish when using the Content Request Dashboard.
+    - The files downloaded from Cloud Manager are based on UTC time zone.  The dashboards are based on local machine time zone.  This may introduce some misalignment during analysis, and you may need to introduce a wider range in the dashboard time filter to see all requests.
 
 - **NOTE**: additional fields must be logged in order for the Content Request Dashboard to be accurate.  This is configured per the [instructions on Experience League](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-configuring-traffic#logproperty) and the additional fields are included in this syntax:
 
@@ -40,13 +41,9 @@ requestTransformations:
           logProperty: bot_name
           value:
             reqProperty: botName
-        - type: set
-          logProperty: origin_selectors
-          value:
-            reqProperty: originSelectors
 ```
 
-If the additional fields `req_ref`, `bot_name`, and `origin_selectors` are not logged, the Content Request Dashboard will still function but the counts may be inaccurate because the filters will not have the necessary info.
+If the additional fields `req_ref` and `bot_name` are not logged, the Content Request Dashboard will still function but the counts may be inaccurate because the filters will not have all the necessary info.
 
 ## How to set up the ELK Docker container{#how-to-setup-the-elk-docker-container}
 
