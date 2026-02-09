@@ -43,7 +43,7 @@ requestTransformations:
             reqProperty: botName
 ```
 
-If the additional fields `req_ref` and `bot_name` are not logged, the Content Request Dashboard will still function but the counts may be inaccurate because the filters will not have all the necessary info.
+If the additional fields `req_ref` and `bot_name` are not logged, the Content Request Dashboard will still function but the counts may be inaccurate because the filters will not have all the necessary info.  Also note that these fields will be logged with a `custom_` prefix in the log files.
 
 ## How to set up the ELK Docker container{#how-to-setup-the-elk-docker-container}
 
