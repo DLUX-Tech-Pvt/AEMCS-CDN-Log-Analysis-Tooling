@@ -4,8 +4,9 @@ services:
     container_name: elasticsearch
     environment:
       discovery.type: single-node
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      ES_JAVA_OPTS: "-Xms2g -Xmx2g"
     volumes:
+      - esdata:/usr/share/elasticsearch/data
       - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
     ports:
       - "9200:9200"
@@ -22,10 +23,13 @@ services:
     container_name: logstash
     environment:
       discovery.seed_hosts: logstash
-      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+      LS_JAVA_OPTS: "-Xms1g -Xmx1g"
     volumes:
       - ./logs:/usr/share/logstash/data/logs
+      - ./aem-logs:/usr/share/logstash/data/aem-logs
+      - ./logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml
       - ./logstash/pipeline/logstash-cdn-logs.config:/usr/share/logstash/pipeline/logstash-cdn-logs.config
+      - ./logstash/pipeline/logstash-aem-logs.config:/usr/share/logstash/pipeline/logstash-aem-logs.config
     ports:
       - "6000:6000/tcp"
       - "6000:6000/udp"
@@ -35,7 +39,6 @@ services:
       - elasticsearch
     networks:
       - elastic
-    command: logstash -f /usr/share/logstash/pipeline/logstash-cdn-logs.config
   kibana:
     image: kibana:8.10.1
     container_name: kibana
@@ -49,7 +52,13 @@ services:
       ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
       INTERACTIVESETUP_ENABLED: false
     volumes:
+      - kibanadata:/usr/share/kibana/data
       - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml
 networks:
   elastic:
     driver: bridge
+volumes:
+  esdata:
+    driver: local
+  kibanadata:
+    driver: local

@@ -1,2 +1,6 @@
-**/logs/**/.sincedb
+**/logs/**/.sincedb*
 **/logs/**/*.log
+**/logs/**/*.log.gz
+**/aem-logs/**/.sincedb*
+**/aem-logs/**/*.log
+**/aem-logs/**/*.log.gz

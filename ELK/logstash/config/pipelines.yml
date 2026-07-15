@@ -1,0 +1,8 @@
+# Two independent pipelines — each has its own input/filter/output.
+# Events from one pipeline never leak into the other.
+
+- pipeline.id: cdn-logs
+  path.config: "/usr/share/logstash/pipeline/logstash-cdn-logs.config"
+
+- pipeline.id: aem-logs
+  path.config: "/usr/share/logstash/pipeline/logstash-aem-logs.config"

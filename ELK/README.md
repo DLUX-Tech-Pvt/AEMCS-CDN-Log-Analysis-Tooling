@@ -1,166 +1,125 @@
-# ELK Docker container for AEMCS CDN Log Analysis
+# ELK Docker container for AEMCS CDN and AEM Log Analysis
 
-This section of the repository lets you analyze AEM as a Cloud Service (AEMCS) CDN log files and visualize metrics through dashboards using the ELK stack.
+This project provides a pre-configured ELK (Elasticsearch, Logstash, and Kibana) stack to help you aggregate, analyze, and visualize logs from Adobe Experience Manager as a Cloud Service (AEMCS).
 
-## Overview
+It supports both **CDN logs** and **AEM application logs** (Author, Publish, and Dispatcher).
 
-ELK stands for three popular projects: Elasticsearch, Logstash, and Kibana. The ELK stack helps aggregate, analyze logs, and create visualizations for monitoring, and troubleshooting purposes. 
+## 🚀 Overview for Developers
 
-To quickstart the analysis, the following dashboards are provided:
+If you are new to the project, this tool helps us troubleshoot issues, monitor traffic, and analyze performance locally without relying solely on cloud-based logging tools. 
 
-- **CDN Cache Hit Ratio**: provides insights into the total cache hit ratio and total count of requests by HIT, PASS, and MISS status. Also provides top HIT, PASS, and MISS URLs.
-- **CDN Traffic Dashboard**: provides insights into the traffic via CDN and Origin request rate, 4xx and 5xx error rates, and non-cached requests. Also provides max CDN and Origin requests per second per client IP address and more insights to optimize the CDN configurations.
-- **WAF Dashboard**: provides insights via analyzed, flagged, and blocked requests. Also provides top attacks by WAF Flag ID, top 100 attackers by client IP, country, and user agent and more insights to optimize the WAF configurations.
-- **Content Request Dashboard**: provides insights into the requests which count toward [content requests](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/using-cloud-manager/content-requests) for license measurement purposes.
-    - Please note that under extremely heavy load, not all requests are added to the logs available for download from Cloud Manager.  In this situation, the Content Request Dashboard may not provide accurate counts.
-    - Also note that if a [customer-managed CDN](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn#point-to-point-CDN) is put in front of the default CDN that comes with AEMCS, then this dashboard only shows the portion of content requests which are not cached at the outer CDN and the customer is responsible for self-reporting for license measurement purposes.
+You simply download logs from AEM Cloud Manager, drop them into specific folders, and spin up the Docker container. Logstash will automatically parse them, Elasticsearch will index them, and Kibana will let you visualize them using pre-built dashboards.
 
-You can enhance and create additional dashboards to gain further insights and optimize the CDN configurations.
+### Supported Dashboards
 
-## Prerequisites
+We have built a suite of dashboards to provide insights out-of-the-box:
 
-- Install [Docker](https://docs.docker.com/engine/install/) and increase the memory limit (`Preferences -> Resources -> Advanced`) to at least 4 GB.
+**AEM Dashboards (New!)**
+- **AEM Ops Overview Dashboard**: High-level overview of AEM operations, tier health, and general status.
+- **AEM Error Triage Dashboard**: Quickly identify and triage common AEM errors and exceptions.
+- **AEM Error Deep Dive Dashboard**: Detailed view for investigating specific AEM errors and their stack traces.
+- **AEM Warning Analysis Dashboard**: Focuses on analyzing AEM warning logs to proactively address potential issues.
+- **AEM Request Performance Dashboard**: Analysis of AEM request response times and performance bottlenecks.
+- **AEM Access Traffic Dashboard**: Insights into traffic directly hitting AEM instances (author and publish tiers).
 
-- Download the [CDN logs](https://experienceleague.adobe.com/docs/experience-manager-cloud-service/content/implementing/using-cloud-manager/manage-logs.html?lang=en) you would like to analyze.
-    - Content requests are limited to the production environment publish tier for AEMCS.  You are free to download and analyze any CDN logs with these dashboards, however focus on production publish when using the Content Request Dashboard.
-    - The files downloaded from Cloud Manager are based on UTC time zone.  The dashboards are based on local machine time zone.  This may introduce some misalignment during analysis, and you may need to introduce a wider range in the dashboard time filter to see all requests.
+**CDN Dashboards**
+- **CDN Cache Hit Ratio**: Insights into cache hit/miss/pass ratios and top requested URLs.
+- **Traffic Filter Rules (WAF) Analysis**: Analyzes flagged and blocked requests, top attacks by WAF Rule ID, and attacker IPs.
+- **Content Request Dashboard**: Tracks requests counting toward content requests for license measurement.
 
-- **NOTE**: additional fields must be logged in order for the Content Request Dashboard to be accurate.  This is configured per the [instructions on Experience League](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-configuring-traffic#logproperty) and the additional fields are included in this syntax:
+---
 
+## 🛠 Prerequisites
+
+- Install [Docker Desktop](https://docs.docker.com/engine/install/).
+- Allocate sufficient memory to Docker. The containers are configured to use a combined **~3 GB of RAM** (`Preferences -> Resources -> Advanced`). Ensure your system has at least 4 GB available for Docker. *(Note: We have optimized the memory footprint so it runs smoothly on standard developer machines!)*
+- Download the logs you want to analyze from [Adobe Cloud Manager](https://experienceleague.adobe.com/docs/experience-manager-cloud-service/content/implementing/using-cloud-manager/manage-logs.html?lang=en).
+
+---
+
+## 📂 Where to Place Your Logs
+
+Before starting the container, place your logs in the correct directory. You must unzip any `.log.gz` files so they end in `.log`.
+
+### 1. AEM & Dispatcher Logs
+AEM application logs (like `aemerror`, `aemaccess`, `aemrequest`) and Dispatcher logs (`httpdaccess`, `httpderror`, `aemdispatcher`) go into the `aem-logs` folder. 
+
+Group them by environment. For example:
+```shell
+AEMCS-CDN-Log-Analysis-Tooling/ELK/aem-logs/dev/
+AEMCS-CDN-Log-Analysis-Tooling/ELK/aem-logs/stage/
+AEMCS-CDN-Log-Analysis-Tooling/ELK/aem-logs/prod/
 ```
-requestTransformations:
-  rules:
-    - name: log-on-request
-      when: "*"
-      actions:
-        - type: set
-          logProperty: req_ref
-          value:
-            reqHeader: referer
-        - type: set
-          logProperty: bot_name
-          value:
-            reqProperty: botName
+Drop all files for a specific environment into its respective folder. The filename must contain the log type token (e.g., `publish-aemerror-2023.log`). Logstash relies on the filename to pick the correct parser!
+
+### 2. CDN Logs
+CDN logs go into the `logs` folder. Similar to AEM logs, group them by environment:
+```shell
+AEMCS-CDN-Log-Analysis-Tooling/ELK/logs/dev/
+AEMCS-CDN-Log-Analysis-Tooling/ELK/logs/stage/
+AEMCS-CDN-Log-Analysis-Tooling/ELK/logs/prod/
 ```
 
-If the additional fields `req_ref` and `bot_name` are not logged, the Content Request Dashboard will still function but the counts may be inaccurate because the filters will not have all the necessary info.  Also note that these fields will be logged with a `custom_` prefix in the log files.
+---
 
-## How to set up the ELK Docker container{#how-to-setup-the-elk-docker-container}
+## 🏃‍♂️ How to Run the Project
 
-1. Clone this GitHub repository:
-
+1. **Clone the repository** and navigate to the ELK directory:
     ```shell
-    $ git clone git@github.com:adobe/AEMCS-CDN-Log-Analysis-Tooling.git
+    git clone git@github.com:adobe/AEMCS-CDN-Log-Analysis-Tooling.git
+    cd AEMCS-CDN-Log-Analysis-Tooling/ELK
     ```
 
-1. Navigate to the ELK directory of the cloned repository:
+2. **Add your logs** into the `aem-logs/<env>/` or `logs/<env>/` directories as explained above.
 
+3. **Start the ELK stack**:
     ```shell
-    $ cd AEMCS-CDN-Log-Analysis-Tooling/ELK
+    docker compose up
     ```
+    *Tip: You can add more logs while the container is running. Logstash will automatically detect and parse new `.log` files.*
 
-1. Create one folder for each AEM environment that you would like to monitor inside `logs/` folder and place your `.log` files there, do not forget to unzip the `.log.gz` files. For example, you could have three subfolders corresponding to your `dev`, `stage` and `prod` environments:
+4. **Open Kibana**:
+    Once the console output settles, navigate to [http://localhost:5601](http://localhost:5601) in your browser.
 
-    ```shell
-    $ mkdir -p logs/dev
-    $ mkdir -p logs/stage
-    $ mkdir -p logs/prod
-    ```
-        
-    Alternatively, you can separate your logs by both Program ID and Environment ID in case you are analyzing logs from multiple AEM programs:
+5. **Import Dashboards**:
+    - Go to the **Menu** (top-left) -> **Stack Management** -> **Saved Objects**.
+    - Click **Import** and select the `.ndjson` files from the `ELK/dashboards/` directory in this repository.
 
-    ```shell
-    $ mkdir -p logs/p<PROGRAM-ID>-dev
-    $ mkdir -p logs/p<PROGRAM-ID>-stage
-    $ mkdir -p logs/p<PROGRAM-ID>-prod
-    ```
- 
-    There are no assumptions about the naming format but it is recommended to use suggestive names for these subfolders since they appear in your dashboards.
+6. **View the Dashboards**:
+    - Go to **Menu** -> **Analytics** -> **Dashboards**.
+    - Open any imported dashboard to start exploring your data!
+    - Use the time filter (top-right) to ensure your log timestamps are covered.
+    - Use the `aem_env_name` filter to toggle between `dev`, `stage`, or `prod`.
 
-1. When you are ready, run the command below: 
+---
 
-    ```shell
-    $ docker compose up
-    ```
+## 🔧 Troubleshooting & Tips
 
-    In case you would like to add more logs, you can do it without stopping or restarting the Docker containers. Simply place your logs in one of the `logs` subfolders.
+**I added logs but don't see them in Kibana?**
+- Ensure the files end in `.log` (unzip `.gz` files).
+- Expand your time range in Kibana (top right corner). Logs are based on UTC, which might differ from your local timezone.
+- If you need Logstash to re-read files from scratch, stop the container, delete the hidden tracking files, and restart:
+  ```shell
+  docker compose stop
+  rm -f aem-logs/.sincedb*
+  rm -f logs/.sincedb*
+  docker compose up
+  ```
 
-1. Once the above command-related output stops appearing in the console, it means that the ELK stack is ready to use. You can also verify by checking your Docker Desktop application (in the `Containers` section).
+**How do I completely reset the environment?**
+To wipe all data in Elasticsearch and start fresh:
+```shell
+docker compose down -v
+rm -f aem-logs/.sincedb*
+rm -f logs/.sincedb*
+```
 
-1. Navigate to <http://localhost:5601/app/discover> in your browser. You see the Elastic home page. 
+**How do I stop the containers?**
+Press `Ctrl+C` in the terminal where it's running, or run:
+```shell
+docker compose down
+```
 
-    ![Elastic - Kibana Home Page](images/elk-home.png)
-
- 
-1. Import the provided dashboards by clicking `Menu` (three horizontal bars on the top-left side), followed by `Stack Management` and `Saved Objects` from the options on the left. Finally, click `Import` and select the desired `.ndjson` files from the cloned repository's [dashboards](./dashboards/) directory.
-
-    ![Elastic - Import Dashboard](images/stack-management.png)
-
-1. Verify the imported dashboards by clicking `Menu -> Analytics -> Dashboards`.
-
-    ![Elastic - Dashboards](images/dashboards.png)
-
-1. Open the desired dashboard and review the panels.
-
-    ![CDN Cache Hit Ratio Dashboard](images/Dashboard-CDN-Cache-Hit-Ratio.png)
-
-
-This completes the one-time setup. Now you can ingest the logs and analyze them.
-
-## How to analyze the AEMCS CDN logs
-
-This repository provides three dashboards to analyze the AEMCS CDN logs. You can use these dashboards to visualize the CDN log data in Kibana.
-
-1. Download the CDN logs from Adobe Cloud Manager, refer the documentation [here](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/using-cloud-manager/manage-logs).
-
-1. Place the CDN logs inside the environment-specific folders. For example, if you have logs for `dev` environment then place them inside `logs/dev` folder. The logs should have `.log` extension, unzip the `.log.gz` files if needed.
-
-1. Make sure that the ELK Docker containers are running.
-
-1. Open the desired dashboard and select the time range for which you want to analyze the logs.
-
-    ![CDN Cache Ratio Analysis](images/cache-ratio-analysis.png)
-
-1. Based on how many logs you provided, data might still be loading. Make sure that an appropriate interval is selected from the time filter on the top-right side so your logs are covered. Also, select one of the environments from the drop-down list by locating on your screen the filter with text `aem_env_name: Please make a choice`.
-
-## Troubleshooting
-
-If you would like to start with a fresh setup, follow these steps:
-
-1. Navigate to the ELK directory of the cloned repository:
-
-    ```shell
-    $ cd AEMCS-CDN-Log-Analysis-Tooling/ELK
-    ```
-
-1. Remove the Docker container and volumes.
-
-    ```shell
-    $ docker compose rm -v
-    ```
-
-1. Remove the `logs/.sincedb` file. This file is created by Logstash to keep track of the log files that have been read. Removing this file will allow Logstash to re-read the log files.
-
-    ```shell
-    $ rm -f logs/.sincedb*
-    ```
-
-1. Follow the steps mentioned in the [How to set up the ELK Docker container](#how-to-setup-the-elk-docker-container) section from step 4.
-
-If you would like to change the port number for Kibana, you can do so by editing the [compose.yml](compose.yaml#L43) file and changing the value of `ports`  under the `kibana` section.
-
-## How to stop the ELK Docker container
-
-There are various ways to stop the ELK Docker container. You can use any of the following methods.
-
-- Using Docker command.
-
-    ```shell
-    $ cd AEMCS-CDN-Log-Analysis-Tooling/ELK
-    $ make stop
-    ```
-
-- Using a Docker Desktop application.
-
-- Control+C on the console where you started the ELK Docker container.
+**Note on Content Requests Dashboard:**
+For the Content Request Dashboard to be fully accurate, ensure custom fields `req_ref` and `bot_name` are configured in your CDN via Cloud Manager. Otherwise, counts may be inaccurate.
 
